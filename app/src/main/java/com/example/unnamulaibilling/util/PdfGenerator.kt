@@ -1,7 +1,9 @@
 package com.example.unnamulaibilling.util
 
+import android.content.ActivityNotFoundException
 import android.content.ContentValues
 import android.content.Context
+import android.content.Intent
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
@@ -11,6 +13,8 @@ import android.net.Uri
 import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
+import android.widget.Toast
+import androidx.core.content.FileProvider
 import com.example.unnamulaibilling.data.model.Invoice
 import java.io.File
 import java.io.FileOutputStream
@@ -53,12 +57,12 @@ object PdfGenerator {
         }
     }
 
-    fun savePdfToDownloads(context: Context, invoice: Invoice): String? {
+    fun savePdfToDownloads(context: Context, invoice: Invoice): Uri? {
         val pdfFile = generateInvoicePdf(context, invoice) ?: return null
         val fileName = "Invoice_${invoice.invoiceDetails.invoiceNumber}.pdf"
 
         return try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            val savedUri: Uri? = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                 val contentValues = ContentValues().apply {
                     put(MediaStore.MediaColumns.DISPLAY_NAME, fileName)
                     put(MediaStore.MediaColumns.MIME_TYPE, "application/pdf")
@@ -72,7 +76,7 @@ object PdfGenerator {
                         inputStream.copyTo(outputStream)
                     }
                 }
-                "Downloads/$fileName"
+                uri
             } else {
                 @Suppress("DEPRECATION")
                 val downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
@@ -81,11 +85,32 @@ object PdfGenerator {
                 }
                 val destFile = File(downloadsDir, fileName)
                 pdfFile.copyTo(destFile, overwrite = true)
-                destFile.absolutePath
+                FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", destFile)
             }
+            if (savedUri != null) {
+                openPdf(context, savedUri)
+            }
+            savedUri
         } catch (e: Exception) {
             e.printStackTrace()
             null
+        }
+    }
+
+    fun openPdf(context: Context, uri: Uri) {
+        val intent = Intent(Intent.ACTION_VIEW).apply {
+            setDataAndType(uri, "application/pdf")
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        try {
+            context.startActivity(intent)
+        } catch (e: ActivityNotFoundException) {
+            Toast.makeText(
+                context,
+                "PDF saved successfully. No PDF viewer app found to open it.",
+                Toast.LENGTH_LONG
+            ).show()
         }
     }
 

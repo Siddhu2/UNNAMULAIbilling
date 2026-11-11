@@ -51,6 +51,7 @@ fun PreviewScreen(
                         "PDF saved successfully: Invoice_${invoiceDetails.invoiceNumber}.pdf",
                         Toast.LENGTH_LONG
                     ).show()
+                    PdfGenerator.openPdf(context, uri)
                 } else {
                     Toast.makeText(context, "Failed to save PDF", Toast.LENGTH_SHORT).show()
                 }
